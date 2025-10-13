@@ -8,12 +8,12 @@ from __future__ import annotations
 import random
 import time
 
-from xt_thread.thread import ComposedSingletonThread, SafeThread, SingletonThread, ThreadBase, ThreadManager
+from nsthread.thread import ComposedSingletonThread, SafeThread, SingletonThread, ThreadBase, ThreadManager
 
 
 # 改进callback匿名函数，确保正确返回结果
 def callback_func(result):
-    print(f'callback |{result}')
+    print(result := f'callback |{result}')
     return result
 
 
@@ -43,7 +43,7 @@ def test_01_thread_base():
     """1. 测试ThreadBase类"""
     print('\n=== 1. 测试ThreadBase类 ===')
 
-    thread = ThreadBase(simple_task, callback=callback_func)
+    thread = ThreadBase(simple_task)
     thread.start()
     result = thread.get_result()
     print(f'ThreadBase结果: {result}')

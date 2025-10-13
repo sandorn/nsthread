@@ -1,0 +1,8 @@
+# 包含README.md文件
+include README.md
+
+# 包含tests目录及其所有文件
+recursive-include tests *.py
+
+# 包含所有Python源文件
+recursive-include nsthread *.py

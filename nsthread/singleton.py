@@ -73,7 +73,6 @@ class SingletonMixin:
 
         # 获取锁
         with cls._instance_lock:
-            # 第二次检查(有锁)
             if cls in cls._instances:
                 return cls._instances[cls]
 
@@ -106,4 +105,3 @@ class SingletonMixin:
     def get_instance(cls: type[Any]) -> Any | None:
         """获取当前单例实例（不创建新实例）"""
         return cls._instances.get(cls) if cls in cls._instances else None
-

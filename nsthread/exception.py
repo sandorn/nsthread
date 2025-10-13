@@ -11,7 +11,7 @@ from __future__ import annotations
 import functools
 import traceback
 from collections.abc import Callable
-from typing import Any
+from typing import Any, overload
 
 from xtlog import mylog
 
@@ -19,7 +19,7 @@ from xtlog import mylog
 ExceptionTypes = tuple[type[Exception], ...]
 
 
-def _handle_exception(
+def handle_exception(
     exc: BaseException | None = None,
     re_raise: bool = False,
     handler: Callable[..., Any] | None = None,
@@ -34,12 +34,12 @@ def _handle_exception(
         exc: 异常对象
         re_raise: 是否重新抛出异常，默认False（不抛出异常）
         handler: 异常处理函数，默认None（不处理）
-        default_return: 不抛出异常时的默认返回值，default_return为None时返回错误信息字符串
+        default_return: 默认返回值
         log_traceback: 是否记录完整堆栈信息，默认True
         custom_message: 自定义错误提示信息，默认None
 
     Returns:
-        Any: 如果re_raise=True，重新抛出异常；否则返回default_return或错误信息字符串
+        Any: 如果re_raise=True，重新抛出异常；否则返回default_return
 
     Example:
         >>> # 基本使用
@@ -56,12 +56,12 @@ def _handle_exception(
     error_msg = str(exc)
 
     # 统一的日志格式
-    error_message = f' {custom_message}except: {error_type}({error_msg})' if custom_message else f'except: {error_type}({error_msg})'
+    error_message = f'{custom_message} | except: {error_type}({error_msg})' if custom_message else f'except: {error_type}({error_msg})'
     mylog.error(error_message)
 
     # 调用异常处理函数
     if handler:
-        return handler(exc)
+        handler(exc)
 
     # 如果需要,记录完整堆栈信息
     if log_traceback and exc is not None:  # 确保有异常对象
@@ -75,10 +75,29 @@ def _handle_exception(
     if re_raise and exc is not None:
         raise exc
 
-    return default_return
+    return default_return if default_return is not None else f'except: {error_type}({error_msg})'
+
+
+@overload
+def safe_call(fn: Callable[..., Any]) -> Callable[..., Any]:
+    pass
+
+
+@overload
+def safe_call(
+    fn: None = None,
+    re_raise: bool = False,
+    handler: Callable[..., Any] | None = None,
+    default_return: Any = None,
+    log_traceback: bool = True,
+    custom_message: str | None = None,
+    exceptions: ExceptionTypes = (Exception,),
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    pass
 
 
 def safe_call(
+    fn: Callable[..., Any] | None = None,
     re_raise: bool = False,
     handler: Callable[..., Any] | None = None,
     default_return: Any | None = None,
@@ -118,8 +137,8 @@ def safe_call(
             except exceptions as e:
                 func_name = func.__name__
                 # 添加函数名到自定义消息中
-                message = f"[{func_name}] {custom_message}" if custom_message else f"[{func_name}]"
-                return _handle_exception(
+                message = f'{func_name} | {custom_message}' if custom_message else f'{func_name}'
+                return handle_exception(
                     exc=e,
                     re_raise=re_raise,
                     handler=handler,
@@ -127,7 +146,10 @@ def safe_call(
                     log_traceback=log_traceback,
                     custom_message=message,
                 )
-        
+
         return wrapper
-    
-    return decorator
+
+    return decorator if fn is None else decorator(fn)
+
+
+__all__ = ['handle_exception', 'safe_call']

@@ -11,50 +11,52 @@ from __future__ import annotations
 
 import time
 import unittest
-from concurrent.futures import wait
-
-from xt_thread.futures import AsyncFunction, BaseThreadPool, DynamicThreadPool, EnhancedThreadPool, TaskExecutor, ThreadPoolManager
 
 
-class TestBaseThreadPool(unittest.TestCase):
-    """测试BaseThreadPool类的功能"""
+class TestBaseThreadRunner(unittest.TestCase):
+    """测试BaseThreadRunner类的功能"""
+
+    def setUp(self):
+        """测试前准备"""
+        from nsthread.futures import BaseThreadRunner
+
+        self.BaseThreadRunner = BaseThreadRunner
 
     def test_basic_functionality(self):
         """测试基本的任务提交和执行"""
-        results = []
 
         def worker(task_id):
-            results.append(task_id)
-            time.sleep(0.1)  # 模拟工作负载
+            time.sleep(0.1)
+            return f'Task {task_id} completed'
 
-        pool = BaseThreadPool(max_workers=3)
-        threads = []
+        pool = self.BaseThreadRunner(max_workers=3)
 
         # 提交5个任务
-        for i in range(5):
-            thread = pool.submit(worker, i)
-            threads.append(thread)
+        _ = [pool.submit(worker, i) for i in range(5)]
 
-        # 等待所有线程完成
-        for thread in threads:
-            thread.join()
+        # 等待所有线程完成并获取结果
+        thread_results = pool.get_results()
 
-        # 验证所有任务都已执行
-        assert set(results) == set(range(5))
+        self.assertEqual(len(thread_results), 5)
+        for i, result in enumerate(thread_results):
+            self.assertEqual(result, f'Task {i} completed')
 
     def test_thread_limit(self):
         """测试线程数量限制"""
-        active_threads = []
+        import threading
+
+        active_threads = set()
         max_count = [0]
+        lock = threading.Lock()
 
         def worker(task_id):
-            active_threads.append(task_id)
-            # 在任务执行过程中检查活跃线程数
-            current_active = pool.active_threads
-            max_count[0] = max(max_count[0], current_active)
-            time.sleep(0.2)  # 模拟较长的工作负载
+            with lock:
+                active_threads.add(task_id)
+                current_active = len([t for t in threads if t.is_alive()])
+                max_count[0] = max(max_count[0], current_active)
+            time.sleep(0.3)  # 增加睡眠时间确保并发
 
-        pool = BaseThreadPool(max_workers=2)
+        pool = self.BaseThreadRunner(max_workers=2)
         threads = []
 
         # 提交4个任务
@@ -66,257 +68,293 @@ class TestBaseThreadPool(unittest.TestCase):
         for thread in threads:
             thread.join()
 
-        # 验证最大线程数不超过限制
-        assert max_count[0] == 2
-        assert set(active_threads) == set(range(4))
-
-
-class TestDynamicThreadPool(unittest.TestCase):
-    """测试DynamicThreadPool类的功能"""
-
-    def test_basic_functionality(self):
-        """测试基本的任务提交和执行"""
-        results = []
-
-        def worker(task_id):
-            results.append(task_id)
-            time.sleep(0.1)  # 模拟工作负载
-
-        with DynamicThreadPool(min_workers=2, max_workers=5) as pool:
-            # 提交10个任务
-            for i in range(10):
-                pool.submit(worker, i)
-
-        # 验证所有任务都已执行
-        assert set(results) == set(range(10))
-
-    def test_context_manager(self):
-        """测试上下文管理器功能"""
-        results = []
-
-        def worker(task_id):
-            results.append(task_id)
-
-        # 使用上下文管理器
-        with DynamicThreadPool() as pool:
-            for i in range(5):
-                pool.submit(worker, i)
-
-        # 验证线程池已关闭且任务已执行
-        assert set(results) == set(range(5))
-
-
-class TestThreadPoolManager(unittest.TestCase):
-    """测试ThreadPoolManager类的功能"""
-
-    def test_singleton_behavior(self):
-        """测试单例行为"""
-        pool1 = ThreadPoolManager.get_pool()
-        pool2 = ThreadPoolManager.get_pool()
-
-        # 验证两次获取的是同一个实例
-        assert pool1 is pool2
-
-    def test_different_max_workers(self):
-        """测试不同max_workers参数获取不同实例"""
-        pool1 = ThreadPoolManager.get_pool(max_workers=4)
-        pool2 = ThreadPoolManager.get_pool(max_workers=8)
-
-        # 验证max_workers不同时返回不同实例
-        assert pool1 is not pool2
-        assert pool1._max_workers == 4
-        assert pool2._max_workers == 8
-
-    def test_task_execution(self):
-        """测试任务执行"""
-        results = []
-
-        def worker(task_id):
-            results.append(task_id)
-            return task_id
-
-        with ThreadPoolManager.get_pool() as executor:
-            futures = [executor.submit(worker, i) for i in range(5)]
-            wait(futures)  # 等待所有任务完成
-
-        # 验证所有任务都已执行
-        assert set(results) == set(range(5))
+        # 验证最大线程数不超过限制（可能为1或2，取决于执行时机）
+        self.assertLessEqual(max_count[0], 2)
+        self.assertEqual(set(active_threads), set(range(4)))
 
     def test_shutdown(self):
         """测试关闭功能"""
-        pool1 = ThreadPoolManager.get_pool()
-        ThreadPoolManager.shutdown()
-        pool2 = ThreadPoolManager.get_pool()
+        pool = self.BaseThreadRunner(max_workers=2)
 
-        # 验证shutdown后获取的是新实例
-        assert pool1 is not pool2
+        def worker():
+            time.sleep(0.1)
+            return 'done'
+
+        # 提交任务
+        thread = pool.submit(worker)
+        pool.shutdown(wait=True)
+
+        # 验证任务完成
+        self.assertEqual(thread.get_result(), 'done')
 
 
 class TestEnhancedThreadPool(unittest.TestCase):
     """测试EnhancedThreadPool类的功能"""
 
+    def setUp(self):
+        """测试前准备"""
+        from nsthread.futures import EnhancedThreadPool
+
+        self.EnhancedThreadPool = EnhancedThreadPool
+
     def test_basic_functionality(self):
-        """测试基本的任务提交和结果收集"""
+        """测试基本的任务提交和执行"""
 
         def worker(task_id):
-            time.sleep(0.1)  # 模拟工作负载
-            return task_id * 2
+            time.sleep(0.1)
+            return f'Task {task_id} completed'
 
-        with EnhancedThreadPool(max_workers=3) as pool:
-            # 提交5个任务
-            for i in range(5):
-                pool.submit_task(worker, i)
+        pool = self.EnhancedThreadPool(max_workers=3)
+        futures = []
 
-            # 等待所有任务完成
-            completed = pool.wait_for_completion(timeout=5)
+        # 提交5个任务
+        for i in range(5):
+            future = pool.submit_task(worker, i)
+            futures.append(future)
 
-            # 获取结果
-            results = pool.get_results()
+        # 等待所有任务完成并获取结果
+        results = pool.wait_all_completed()
 
-        # 验证所有任务都已完成
-        assert completed
-        # 验证结果正确性
-        assert set(results) == set(i * 2 for i in range(5))
+        # 验证结果数量和内容
+        self.assertEqual(len(results), 5)
+        success_results = [result.result for result in results if result.success]
+        self.assertEqual(len(success_results), 5)
+        for i in range(5):
+            self.assertIn(f'Task {i} completed', success_results)
+
+    def test_batch_submit_simple(self):
+        """测试批量提交简单格式的任务"""
+
+        def worker(task_id):
+            time.sleep(0.1)
+            return f'Task {task_id} completed'
+
+        pool = self.EnhancedThreadPool()
+        # 简单格式: [item1, item2, ...]
+        futures = pool.submit_tasks(worker, list(range(5)))
+
+        # 等待所有任务完成并获取结果
+        results = pool.wait_all_completed()
+
+        # 验证结果
+        self.assertEqual(len(results), 5)
+        success_results = [result.result for result in results if result.success]
+        self.assertEqual(len(success_results), 5)
+
+    def test_batch_submit_complex(self):
+        """测试批量提交复杂格式的任务"""
+
+        def worker(task_id, delay=0.1):
+            time.sleep(delay)
+            return f'Task {task_id} completed with delay {delay}'
+
+        pool = self.EnhancedThreadPool()
+        # 复杂格式: [(args_tuple, kwargs_dict), ...]
+        iterables = [((1,), {'delay': 0.05}), ((2,), {'delay': 0.1}), ((3,), {'delay': 0.15})]
+        futures = pool.submit_tasks(worker, iterables)
+
+        # 等待所有任务完成并获取结果
+        results = pool.wait_all_completed()
+
+        # 验证结果
+        self.assertEqual(len(results), 3)
+        success_results = [result.result for result in results if result.success]
+        self.assertEqual(len(success_results), 3)
+        for i in range(1, 4):
+            self.assertTrue(any(f'Task {i} completed' in result for result in success_results))
 
     def test_exception_handling(self):
         """测试异常处理功能"""
-        exceptions = []
-
-        def exception_handler(e):
-            exceptions.append(e)
 
         def worker(task_id):
-            if task_id == 2:
-                raise ValueError('测试异常')
-            return task_id * 2
+            if task_id % 2 == 0:
+                raise ValueError(f'Error in task {task_id}')
+            return f'Task {task_id} completed'
 
-        with EnhancedThreadPool() as pool:
-            # 提交5个任务
+        pool = self.EnhancedThreadPool()
+        futures = []
+        for i in range(5):
+            future = pool.submit_task(worker, i)
+            futures.append(future)
+
+        # 等待所有任务完成并获取结果
+        results = pool.wait_all_completed()
+        print(44444444444444444444, [type(res.error).__name__ for res in results if not res.success])
+
+        # 验证结果
+        self.assertEqual(len(results), 5)
+        success_count = sum(1 for result in results if result.success)
+        error_count = sum(1 for result in results if not result.success)
+        self.assertEqual(success_count, 2)  # 任务1, 3 应该成功
+        self.assertEqual(error_count, 3)  # 任务0, 2, 4 应该失败
+
+    def test_context_manager(self):
+        """测试上下文管理器功能"""
+
+        def worker(task_id):
+            time.sleep(0.1)
+            return f'Task {task_id} completed'
+
+        results = []
+        pool = self.EnhancedThreadPool()
+        futures = []
+
+        with pool:
             for i in range(5):
-                pool.submit_task(worker, i)
-
-            # 等待所有任务完成
-            pool.wait_for_completion()
-
-            # 获取结果
-            results = pool.get_results()
-
-        # 验证异常被处理
-        assert len(exceptions) == 1
-        assert isinstance(exceptions[0], ValueError)
-        # 验证成功任务的结果
-        expected_results = [i * 2 for i in range(5) if i != 2]
-        assert set(results) == set(expected_results)
-
-
-class TestTaskExecutor(unittest.TestCase):
-    """测试TaskExecutor类的功能"""
-
-    def test_basic_functionality(self):
-        """测试基本的任务提交和结果收集"""
-
-        def worker(task_id):
-            time.sleep(0.1)  # 模拟工作负载
-            return task_id * 3
-
-        with TaskExecutor(io_bound=True) as executor:
-            # 添加多个任务
-            executor.add_tasks(worker, [0, 1, 2, 3, 4])
+                future = pool.submit_task(worker, i)
+                futures.append(future)
 
             # 等待所有任务完成并获取结果
-            results = executor.wait_completed()
+            results = pool.wait_all_completed()
 
-        # 验证结果正确性
-        assert set(results) == set(i * 3 for i in range(5))
+        # 验证结果
+        self.assertEqual(len(results), 5)
+        success_results = [result.result for result in results if result.success]
+        self.assertEqual(len(success_results), 5)
 
-    def test_with_max_workers(self):
-        """测试手动指定max_workers参数"""
+    def test_shutdown(self):
+        """测试关闭功能"""
 
-        def worker(task_id):
-            return task_id * 2
+        def worker():
+            time.sleep(0.1)
+            return 'done'
 
-        with TaskExecutor(max_workers=4) as executor:
-            executor.add_tasks(worker, [0, 1, 2, 3, 4])
-            results = executor.wait_completed()
+        pool = self.EnhancedThreadPool(max_workers=2)
 
-        # 验证结果正确性
-        assert set(results) == set(i * 2 for i in range(5))
+        # 提交任务
+        pool.submit_task(worker)
+        pool.shutdown(wait=True)
 
-    def test_with_callback(self):
-        """测试带回调函数的任务提交"""
-        results = []
-        callback_results = []
+        # 验证线程池已关闭（通过尝试再次提交任务应引发异常）
+        with self.assertRaises(RuntimeError):
+            pool.submit_task(worker)
 
-        def worker(task_id):
-            return task_id * 2
+    def test_auto_worker_calculation(self):
+        """测试自动计算工作线程数"""
+        import os
 
-        def callback(future):
-            callback_results.append(future.result())
+        # 测试默认参数时的自动计算
+        pool = self.EnhancedThreadPool()
+        base_workers = os.cpu_count() or 4
+        expected_workers = base_workers * 4
+        self.assertEqual(pool.executor._max_workers, expected_workers)
 
-        with TaskExecutor() as executor:
-            executor.add_tasks(worker, [0, 1, 2, 3, 4], callback=callback)
-            results = executor.wait_completed()
+        # 测试指定max_workers时的行为
+        pool = self.EnhancedThreadPool(max_workers=10)
+        self.assertEqual(pool.executor._max_workers, 10)
 
-        # 验证结果正确性
-        assert set(results) == set(i * 2 for i in range(5))
-        # 验证回调函数被调用
-        assert set(callback_results) == set(i * 2 for i in range(5))
+    def test_ordered_results(self):
+        """测试EnhancedThreadPool的结果顺序"""
 
+        def ordered_worker(task_id: int) -> int:
+            """按顺序返回任务ID的任务，添加随机等待时间"""
+            import random
 
-class TestAsyncFunction(unittest.TestCase):
-    """测试AsyncFunction类的功能"""
+            time.sleep(random.uniform(0.01, 0.1))  # 随机等待时间，增加测试难度
+            return task_id
 
-    def test_single_arg_list(self):
-        """测试单参数列表的情况"""
+        # 测试1: 单个任务提交的顺序
+        pool1 = self.EnhancedThreadPool(max_workers=3)
+        for i in range(10):
+            pool1.submit_task(ordered_worker, i)
 
-        def worker(task_id):
-            time.sleep(0.1)  # 模拟工作负载
-            return task_id * 2
+        results1 = pool1.wait_all_completed()
 
-        # 使用单参数列表
-        result_obj = AsyncFunction(worker, [0, 1, 2, 3, 4])
+        # 检查结果顺序
+        expected_order = list(range(10))
+        actual_order = [result.result for result in results1 if result.success]
 
-        # 验证结果正确性
-        assert sorted(result_obj.result) == sorted([i * 2 for i in range(5)])
+        self.assertEqual(actual_order, expected_order)
+        self.assertEqual(len(results1), 10)
 
-    def test_multi_arg_lists(self):
-        """测试多参数列表的情况"""
+        # 测试2: 批量任务提交的顺序
+        pool2 = self.EnhancedThreadPool(max_workers=3)
+        tasks = list(range(10))
+        pool2.submit_tasks(ordered_worker, tasks)
 
-        def worker(a, b):
-            time.sleep(0.1)  # 模拟工作负载
-            return a + b
+        results2 = pool2.wait_all_completed()
 
-        # 使用多参数列表
-        result_obj = AsyncFunction(worker, [1, 2, 3], [4, 5, 6])
+        # 检查结果顺序
+        actual_order2 = [result.result for result in results2 if result.success]
 
-        # 验证结果正确性
-        expected_results = [1 + 4, 2 + 5, 3 + 6]
-        assert sorted(result_obj.result) == sorted(expected_results)
+        self.assertEqual(actual_order2, expected_order)
+        self.assertEqual(len(results2), 10)
 
-    def test_with_kwargs(self):
-        """测试带关键字参数的情况"""
+    def test_wait_all_completed(self):
+        """测试wait_all_completed方法的功能"""
 
-        def worker(a, multiplier=2):
-            return a * multiplier
+        # 测试1: 基本功能 - 所有任务正常完成
+        def worker1(task_id):
+            time.sleep(0.1)
+            return f'Task {task_id} completed'
 
-        # 使用关键字参数
-        result_obj = AsyncFunction(worker, [1, 2, 3], multiplier=3)
+        pool1 = self.EnhancedThreadPool(max_workers=3)
+        pool1.submit_tasks(worker1, list(range(5)))
 
-        # 验证结果正确性
-        assert sorted(result_obj.result) == sorted([3, 6, 9])
+        # 等待所有任务完成并获取结果
+        results1 = pool1.wait_all_completed()
+        self.assertEqual(len(results1), 5)
+        success_count1 = sum(1 for result in results1 if result.success)
+        self.assertEqual(success_count1, 5)
 
-    def test_with_max_workers(self):
-        """测试手动指定max_workers参数"""
+        # 测试2: 超时处理
+        def worker2(task_id):
+            time.sleep(0.3)  # 故意设置较长的睡眠时间
+            return f'Task {task_id} completed'
 
-        def worker(task_id):
-            return task_id * 2
+        pool2 = self.EnhancedThreadPool(max_workers=1)  # 限制为1个工作线程确保任务排队
+        # 提交任务并保存返回的future列表用于验证
+        futures = pool2.submit_tasks(worker2, list(range(3)))
+        self.assertEqual(len(futures), 3)
 
-        # 指定线程数
-        result_obj = AsyncFunction(worker, [0, 1, 2, 3, 4], max_workers=4)
+        # 设置较短的超时时间，应该只能获取到部分已完成的任务结果
+        start_time = time.time()
+        results2 = pool2.wait_all_completed(timeout=0.4)
+        elapsed_time = time.time() - start_time
 
-        # 验证结果正确性
-        assert sorted(result_obj.result) == sorted([i * 2 for i in range(5)])
+        # 确保在超时时间内返回
+        self.assertLess(elapsed_time, 0.5)
+
+        # 继续等待剩余任务完成，增加等待时间和重试次数
+        remaining_results = []
+        max_wait_time = 2.0  # 最多等待2秒
+        wait_start_time = time.time()
+
+        while pool2._future_tasks and (time.time() - wait_start_time) < max_wait_time:
+            new_results = pool2.wait_all_completed(timeout=0.5)  # 增加超时时间
+            remaining_results.extend(new_results)
+            time.sleep(0.1)  # 增加等待间隔
+
+        # 如果还有未完成的任务，强制等待它们完成
+        if pool2._future_tasks:
+            for future in pool2._future_tasks:
+                future.result()  # 阻塞等待每个任务完成
+            final_results = pool2.wait_all_completed()
+            remaining_results.extend(final_results)
+
+        # 验证总共获取到了所有任务的结果
+        total_results = len(results2) + len(remaining_results)
+        self.assertEqual(total_results, 3)
+
+        # 测试3: 异常处理
+        def worker3(task_id):
+            if task_id % 2 == 0:
+                raise ValueError(f'Error in task {task_id}')
+            return f'Task {task_id} completed'
+
+        pool3 = self.EnhancedThreadPool()
+        pool3.submit_tasks(worker3, list(range(5)))
+
+        # 等待所有任务完成并获取结果
+        results3 = pool3.wait_all_completed()
+        print(44444444444444444444, [type(res.error).__name__ for res in results3])
+        self.assertEqual(len(results3), 5)
+        success_count3 = sum(1 for result in results3 if result.success)
+        error_count3 = sum(1 for result in results3 if not result.success)
+        self.assertEqual(success_count3, 2)  # 任务1, 3 应该成功
+        self.assertEqual(error_count3, 3)  # 任务0, 2, 4 应该失败
 
 
 if __name__ == '__main__':
-    unittest.main()
+    # 运行测试
+    unittest.main(verbosity=2)

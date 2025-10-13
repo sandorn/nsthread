@@ -6,7 +6,8 @@ import time
 
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QApplication
-from xt_thread import ComposedSingletonQtThread, QtThreadBase, QtThreadManager, SingletonQtThread
+
+from nsthread import ComposedSingletonQtThread, QtThreadBase, QtThreadManager, SingletonQtThread
 
 # 创建应用实例
 app = QApplication(sys.argv)

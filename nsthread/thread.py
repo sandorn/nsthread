@@ -33,36 +33,53 @@ from collections.abc import Callable
 from threading import Event, Thread
 from typing import Any, ClassVar
 
-from xtlog import mylog as log
+from xtlog import mylog
 
 from .exception import safe_call
 from .singleton import SingletonMixin
 
 
 class ThreadBase(Thread):
-    """
-    增强型线程基类,提供结果获取、安全停止和资源清理功能
+    """增强型线程基类，提供结果获取、安全停止和资源清理功能
 
     Args:
         target: 线程执行的目标函数
         *args: 传递给目标函数的位置参数
-        **kwargs: 传递给目标函数的关键字参数
+        daemon: 是否为守护线程，默认为True
+        **kwargs: 传递给目标函数的关键字参数，可包含callback回调函数
+
+    Attributes:
+        callback: 线程执行完成后的回调函数
+        _is_running: 线程运行状态标志
+        _result: 线程执行结果
+        _exception: 线程执行过程中捕获的异常
+        _stop_event: 用于安全停止线程的事件对象
+        _thread_started: 线程是否已启动的标志
     """
 
     _target: Callable[..., Any]
     _args: tuple
     _kwargs: dict[str, Any]
 
-    def __init__(self, target: Callable[..., Any], *args: Any, daemon: bool = True, **kwargs: Any):
-        # 提取回调函数
-        self.callback = kwargs.pop('callback', None)
+    def __init__(
+        self,
+        target: Callable[..., Any] | None = None,
+        name: str | None = None,
+        args: tuple = (),
+        kwargs: dict[str, Any] = {},
+        *,
+        daemon: bool | None = True,
+        **thread_kwargs: Any,  # 接收线程自身的额外参数
+    ):
         super().__init__(
             target=target,
-            name=target.__name__,
+            name=name,
             args=args,
-            daemon=daemon,
             kwargs=kwargs,
+            daemon=daemon,
         )
+        self.callback = thread_kwargs.pop('callback', None)
+        self._thread_kwargs = thread_kwargs
         self._is_running = False
         self._result = None
         self._exception = None
@@ -88,7 +105,6 @@ class ThreadBase(Thread):
             self._is_running = True
             self._thread_started = True
 
-    @safe_call()
     def run(self) -> None:
         """执行目标函数并处理结果和回调"""
         self._is_running = True
@@ -96,11 +112,10 @@ class ThreadBase(Thread):
         try:
             if not self._stop_event.is_set():
                 self._result = self._target(*self._args, **self._kwargs)
-                # super().run()  # 调用父类的run方法
                 if callable(self.callback):
                     self._result = self.callback(self._result)
         except Exception as e:
-            log.error(f'线程执行异常: {e}')
+            mylog.error('线程执行异常: {}', e)
             self._exception = e
             self._result = None
         finally:
@@ -125,7 +140,7 @@ class ThreadBase(Thread):
             self.join(timeout)
             return self._result
         except Exception as e:
-            log.error(f'获取线程结果失败: {e}')
+            mylog.error('获取线程结果失败: {}', e)
             return None
 
     def stop(self, timeout: float | None = None) -> bool:
@@ -137,21 +152,22 @@ class ThreadBase(Thread):
         Returns:
             bool: 线程是否成功停止
         """
-        if self._is_running:
-            self._is_running = False
-            self._stop_event.set()
+        if not self._is_running:
+            return False
+        self._is_running = False
+        self._stop_event.set()
 
-            if timeout is not None and self.is_alive():
-                self.join(timeout)
+        if timeout is not None and self.is_alive():
+            self.join(timeout)
 
-            log(f'线程 {self.name} 已停止')
-            return True
-        return False
+        mylog.info('线程 {} 已停止', self.name)
+        return True
 
     def is_running(self) -> bool:
         """检查线程是否正在运行
+
         Returns:
-            bool: True if thread is running, False otherwise
+            bool: 线程是否正在运行
 
         Note:
             - is_alive(): 标准线程运行状态检查
@@ -160,22 +176,37 @@ class ThreadBase(Thread):
 
     def __del__(self):
         """对象销毁时自动清理资源"""
-        if hasattr(self, 'is_running') and hasattr(self, 'stop') and self.is_running():
-            with contextlib.suppress(Exception):
-                self.stop(timeout=1.0)
+        with contextlib.suppress(Exception):
+            # 检查对象是否仍有必要的属性且线程正在运行
+            if hasattr(self, 'is_running') and hasattr(self, 'stop'):
+                # 使用try-except包装is_running()调用，因为它可能也会访问已经被清理的资源
+                try:
+                    is_running_flag = self.is_running()
+                except Exception:
+                    is_running_flag = False
+
+                if is_running_flag:
+                    with contextlib.suppress(Exception):
+                        self.stop(timeout=1.0)
 
 
 class SafeThread(ThreadBase):
-    """
-    安全线程类,提供异常捕获和重试机制
+    """安全线程类，提供异常捕获和重试机制
 
     适用于需要异常处理和重试的任务
 
     Args:
         target: 线程执行的目标函数
         *args: 传递给目标函数的位置参数
-        max_retries: 最大重试次数,默认为0（不重试）
+        max_retries: 最大重试次数，默认为0（不重试）
+        retry_delay: 重试等待时间（秒），默认为1.0
+        daemon: 是否为守护线程，默认为True
         **kwargs: 传递给目标函数的关键字参数
+
+    Attributes:
+        max_retries: 最大重试次数
+        retry_count: 当前已重试次数
+        retry_delay: 重试等待时间（秒）
 
     Example:
         >>> def risky_task():
@@ -184,20 +215,33 @@ class SafeThread(ThreadBase):
         >>>         raise ValueError("随机失败")
         >>>     return "成功"
         >>>
-        >>> thread = SafeThread(risky_task, max_retries=3)
+        >>> thread = SafeThread(risky_task, max_retries=3, retry_delay=0.5)
         >>> thread.start()
     """
 
     def __init__(
         self,
-        target: Callable,
-        *args,
+        target: Callable[..., Any] | None = None,
+        name: str | None = None,
+        args: tuple = (),
+        kwargs: dict[str, Any] = {},
+        *,
+        daemon: bool | None = True,
         max_retries: int = 0,
-        daemon: bool = True,
-        **kwargs: Any,
+        retry_delay: float = 1.0,
+        **thread_kwargs: Any,  # 接收线程自身的额外参数
     ):
-        super().__init__(target, *args, daemon=daemon, **kwargs)
+        self.callback = thread_kwargs.pop('callback', None)
+
+        super().__init__(
+            target=target,
+            name=name,
+            args=args,
+            kwargs=kwargs,
+            daemon=daemon,
+        )
         self.max_retries = max_retries
+        self.retry_delay = retry_delay
         self.retry_count = 0
 
     @safe_call()
@@ -213,21 +257,24 @@ class SafeThread(ThreadBase):
             except Exception as e:
                 self.retry_count += 1
                 if self.retry_count > self.max_retries:
-                    log(f'安全线程 {self.name} 执行失败,已达最大重试次数: {e}')
+                    mylog.error('安全线程 {} 执行失败,已达最大重试次数: {}', self.name, e)
                     self._exception = e
                     break
-                log(f'安全线程 {self.name} 第 {self.retry_count} 次重试: {e}')
-                self._stop_event.wait(1)  # 等待一段时间后重试
+                mylog.info('安全线程 {} 第 {} 次重试: {}', self.name, self.retry_count, e)
+                self._stop_event.wait(self.retry_delay)  # 使用指定的重试等待时间
             finally:
                 self._is_running = False
 
 
 class ThreadManager(SingletonMixin):
-    """
-    线程管理器,用于管理所有线程实例
+    """线程管理器，用于管理所有线程实例
 
-    采用单例模式,确保全局只有一个线程管理器实例
-    使用弱引用存储线程,避免内存泄漏
+    采用单例模式，确保全局只有一个线程管理器实例
+    使用弱引用存储线程，避免内存泄漏
+
+    Attributes:
+        _threads: 存储线程弱引用的字典
+        _lock: 线程安全锁
     """
 
     _threads: ClassVar[dict[int, weakref.ref]] = {}
@@ -238,8 +285,16 @@ class ThreadManager(SingletonMixin):
         super().__init__()
 
     @classmethod
-    @safe_call()
-    def create_thread(cls, target: Callable, *args, **kwargs) -> ThreadBase:
+    def create_thread(
+        cls,
+        target: Callable[..., Any] | None = None,
+        name: str | None = None,
+        args: tuple = (),
+        kwargs: dict[str, Any] = {},
+        *,
+        daemon: bool | None = True,
+        **thread_kwargs: Any,  # 接收线程自身的额外参数
+    ) -> ThreadBase:
         """创建并启动线程,自动添加到管理器
 
         Args:
@@ -250,7 +305,14 @@ class ThreadManager(SingletonMixin):
         Returns:
             ThreadBase: 创建的线程实例
         """
-        thread = ThreadBase(target, *args, **kwargs)
+        thread = ThreadBase(
+            target=target,
+            name=name,
+            args=args,
+            kwargs=kwargs,
+            daemon=daemon,
+            **thread_kwargs,  # 传递线程自身的额外参数
+        )
         with cls._lock:
             cls._threads[id(thread)] = weakref.ref(thread)
 
@@ -258,8 +320,18 @@ class ThreadManager(SingletonMixin):
         return thread
 
     @classmethod
-    @safe_call()
-    def create_safe_thread(cls, target: Callable, *args, **kwargs) -> SafeThread:
+    def create_safe_thread(
+        cls,
+        target: Callable[..., Any] | None = None,
+        name: str | None = None,
+        args: tuple = (),
+        kwargs: dict[str, Any] = {},
+        *,
+        daemon: bool | None = True,
+        max_retries: int = 0,
+        retry_delay: float = 1.0,
+        **thread_kwargs: Any,  # 接收线程自身的额外参数
+    ) -> SafeThread:
         """创建并启动安全线程,自动添加到管理器
 
         Args:
@@ -270,7 +342,16 @@ class ThreadManager(SingletonMixin):
         Returns:
             SafeThread: 创建的安全线程实例
         """
-        thread = SafeThread(target, *args, **kwargs)
+        thread = SafeThread(
+            target=target,
+            name=name,
+            args=args,
+            kwargs=kwargs,
+            daemon=daemon,
+            max_retries=max_retries,
+            retry_delay=retry_delay,
+            **thread_kwargs,  # 传递线程自身的额外参数
+        )
 
         with cls._lock:
             cls._threads[id(thread)] = weakref.ref(thread)
@@ -279,7 +360,6 @@ class ThreadManager(SingletonMixin):
         return thread
 
     @classmethod
-    @safe_call()
     def add_thread(cls, thread: ThreadBase) -> None:
         """将已存在的线程添加到管理器
 
@@ -290,29 +370,31 @@ class ThreadManager(SingletonMixin):
             cls._threads[id(thread)] = weakref.ref(thread)
 
     @classmethod
-    @safe_call()
     def stop_all(cls, timeout: float | None = None) -> None:
         """停止所有管理的线程
 
         Args:
             timeout: 等待线程停止的最大时间（秒）,None表示无限等待
         """
-        with cls._lock:
-            threads_to_stop = []
-            for thread_id, thread_ref in list(cls._threads.items()):
-                thread = thread_ref()
-                if thread is not None and thread.is_running():
-                    threads_to_stop.append(thread)
-                else:
-                    del cls._threads[thread_id]
+        try:
+            with cls._lock:
+                threads_to_stop = []
+                for thread_id, thread_ref in list(cls._threads.items()):
+                    thread = thread_ref()
+                    if thread is not None and thread.is_running():
+                        threads_to_stop.append(thread)
+                    else:
+                        del cls._threads[thread_id]
 
-            for thread in threads_to_stop:
-                thread.stop(timeout)
+                for thread in threads_to_stop:
+                    thread.stop(timeout)
 
-            cls._threads.clear()
+                cls._threads.clear()
+        except Exception as e:
+            mylog.error('停止所有线程失败: {}', e)
+            raise  # 重新抛出异常，让调用者知道操作失败
 
     @classmethod
-    @safe_call()
     def wait_all_completed(cls, timeout: float | None = None) -> dict[int, Any]:
         """等待所有线程完成并返回结果
 
@@ -326,12 +408,16 @@ class ThreadManager(SingletonMixin):
 
         with cls._lock:
             for thread_id, thread_ref in list(cls._threads.items()):
-                thread = thread_ref()
-                if thread is not None:
-                    result = thread.get_result(timeout)
-                    tmp_all_results[thread_id] = result
-                else:
-                    del cls._threads[thread_id]
+                try:
+                    thread = thread_ref()
+                    if thread is not None:
+                        result = thread.get_result(timeout)
+                        tmp_all_results[thread_id] = result
+                    else:
+                        del cls._threads[thread_id]
+                except Exception as e:
+                    mylog.error('获取线程结果时发生错误: {}', e)
+                    tmp_all_results[thread_id] = None
 
         with cls._lock:
             cls._threads.clear()
@@ -364,7 +450,7 @@ class ThreadManager(SingletonMixin):
             thread_id: 线程ID
 
         Returns:
-            Optional[ThreadBase]: 对应的线程实例,如果不存在则返回None
+            ThreadBase | None: 对应的线程实例，如果不存在则返回None
         """
         with cls._lock:
             thread_ref = cls._threads.get(thread_id)
@@ -378,7 +464,7 @@ class ThreadManager(SingletonMixin):
             name: 线程名称
 
         Returns:
-            List[ThreadBase]: 名称匹配的线程实例列表
+            list[ThreadBase]: 名称匹配的线程实例列表
         """
         result = []
         with cls._lock:
@@ -394,7 +480,10 @@ class ThreadManager(SingletonMixin):
 
         Args:
             thread_id: 线程ID
-            timeout: 等待线程停止的最大时间（秒）,None表示无限等待
+            timeout: 等待线程停止的最大时间（秒），None表示无限等待
+
+        Returns:
+            bool: 线程是否成功停止
         """
         thread = cls.get_thread_by_id(thread_id)
         if thread and thread.is_running():
@@ -403,10 +492,9 @@ class ThreadManager(SingletonMixin):
 
 
 class SingletonThread(SingletonMixin, SafeThread):
-    """
-    单例线程类,确保同一目标函数只有一个线程实例
+    """单例线程类，确保同一目标函数只有一个线程实例
 
-    特性:
+    特性：
     - 单例模式保证唯一性
     - 自动线程管理
     - 安全停止机制
@@ -414,14 +502,35 @@ class SingletonThread(SingletonMixin, SafeThread):
     Args:
         target: 线程执行的目标函数
         *args: 传递给目标函数的位置参数
-        **kwargs: 传递给目标函数的关键字参数,可包含max_retries
+        **kwargs: 传递给目标函数的关键字参数，可包含max_retries
     """
 
-    def __init__(self, target: Callable, *args, **kwargs):
+    def __init__(
+        self,
+        target: Callable[..., Any] | None = None,
+        name: str | None = None,
+        args: tuple = (),
+        kwargs: dict[str, Any] = {},
+        *,
+        daemon: bool | None = True,
+        max_retries: int = 0,
+        retry_delay: float = 1.0,
+        **thread_kwargs: Any,  # 接收线程自身的额外参数
+    ):
         # 先调用SingletonMixin的初始化
         SingletonMixin.__init__(self)
         # 然后调用SafeThread的初始化
-        SafeThread.__init__(self, target, *args, **kwargs)
+        SafeThread.__init__(
+            self,
+            target=target,
+            name=name,
+            args=args,
+            kwargs=kwargs,
+            daemon=daemon,
+            max_retries=max_retries,
+            retry_delay=retry_delay,
+            **thread_kwargs,  # 传递线程自身的额外参数
+        )
 
         # 确保所有必要的属性都已初始化
         if not hasattr(self, '_thread_started'):
@@ -431,51 +540,74 @@ class SingletonThread(SingletonMixin, SafeThread):
         if not hasattr(self, '_stop_event'):
             self._stop_event = Event()
 
-    @safe_call()
     def restart(self) -> None:
-        """重启单例线程
-
-        注意：这会创建一个新的线程实例,但由于单例模式,旧实例仍会被新实例替代
-        """
+        """重启单例线程"""
         if self._thread_started and not self.is_alive():
-            # 创建新的线程实例
+            # 正确的实现方式：重置实例并创建新实例
             target = self._target
             args = self._args
             kwargs = self._kwargs
+
             # 从管理器中移除旧线程
             ThreadManager._threads.pop(id(self), None)
-            # 创建新线程
-            self = SafeThread(target, *args, **kwargs)
-            # 添加到管理器
-            ThreadManager.add_thread(self)
-            # 启动新线程
-            self.start()
+
+            # 重置单例实例
+            self.reset_instance()
+
+            # 创建并启动新实例
+            new_instance = type(self)(target, *args, **kwargs)
+            new_instance.start()
 
 
 class ComposedSingletonThread:
-    """
-    组合式单例线程类,确保同一目标函数只有一个线程实例
+    """组合式单例线程类，确保同一目标函数只有一个线程实例
 
-    使用组合而不是继承,避免多继承问题,提供更灵活的单例实现
+    使用组合而不是继承，避免多继承问题，提供更灵活的单例实现
 
     Args:
         target: 线程执行的目标函数
         *args: 传递给目标函数的位置参数
-        **kwargs: 传递给目标函数的关键字参数,可包含max_retries
+        **kwargs: 传递给目标函数的关键字参数，可包含max_retries
+
+    Attributes:
+        _instances: 存储单例实例的字典
+        _lock: 线程安全锁
+        _key: 单例键
+        _thread: 内部线程实例
     """
 
     _instances: ClassVar[dict[tuple, ComposedSingletonThread]] = {}
     _lock = threading.RLock()
     _key: tuple[int, tuple, frozenset] | None = None
 
-    def __new__(cls, target: Callable, *args, **kwargs):
+    def __new__(
+            cls,
+            target: Callable[..., Any] | None = None,
+            name: str | None = None,
+            args: tuple = (),
+            kwargs: dict[str, Any] = {},
+            *,
+            daemon: bool | None = True,
+            max_retries: int = 0,
+            retry_delay: float = 1.0,
+            **thread_kwargs: Any,  # 接收线程自身的额外参数
+    ):
         # 使用目标函数ID、参数和关键字参数作为单例键
         key = (id(target), args, frozenset(kwargs.items()))
 
         with cls._lock:
             if key not in cls._instances:
                 instance = super().__new__(cls)
-                instance._thread = SafeThread(target, *args, **kwargs)
+                instance._thread = SafeThread(
+                    target=target,
+                    name=name,
+                    args=args,
+                    kwargs=kwargs,
+                    daemon=daemon,
+                    max_retries=max_retries,
+                    retry_delay=retry_delay,
+                    **thread_kwargs,  # 传递线程自身的额外参数
+                )
                 instance._key = key
                 cls._instances[key] = instance
             return cls._instances[key]
@@ -519,7 +651,6 @@ class ComposedSingletonThread:
         """
         return self._thread.is_running()
 
-    @safe_call()
     def restart(self) -> None:
         """重启单例线程
 
@@ -535,7 +666,7 @@ class ComposedSingletonThread:
             ThreadManager._threads.pop(id(self._thread), None)
 
             # 创建新线程
-            self._thread = SafeThread(target, *args, **kwargs)
+            self._thread = SafeThread(target=target, args=args, kwargs=kwargs)
 
             # 添加到管理器
             ThreadManager.add_thread(self._thread)
@@ -552,3 +683,6 @@ class ComposedSingletonThread:
         """清除所有单例实例"""
         with cls._lock:
             cls._instances.clear()
+
+
+__all__ = ['ComposedSingletonThread', 'SafeThread', 'SingletonThread', 'ThreadBase', 'ThreadManager']
