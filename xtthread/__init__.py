@@ -5,7 +5,7 @@ Description  : 线程与进程管理增强包 - 提供全面的并发编程解�
 Develop      : VSCode
 Author       : sandorn sandorn@live.cn
 LastEditTime : 2025-09-07 10:00:00
-Github       : https://github.com/sandorn/nsthread
+Github       : https://github.com/sandorn/xtthread
 
 xt_thread包提供了全面的并发编程工具，包括线程管理、进程管理、生产者-消费者模式以及PyQt线程支持。
 

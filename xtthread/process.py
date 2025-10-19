@@ -5,7 +5,7 @@ Description  : 进程池管理模块 - 提供高效的并行任务处理功能
 Develop      : VSCode
 Author       : sandorn sandorn@live.cn
 LastEditTime : 2025-10-09 15:00:00
-Github       : https://github.com/sandorn/nsthread
+Github       : https://github.com/sandorn/xtthread
 
 本模块提供以下核心功能：
 - ProcessBase：增强型进程基类,提供结果获取、安全停止和资源清理功能
@@ -547,14 +547,14 @@ class CustomProcess(ProcessBase):
             for idx in range(self.start_idx, self.end_idx):
                 if self._stop_event.is_set():
                     break
-                    
+
                 self._process_single_index(idx)
         self._is_running = False
 
     def _process_single_index(self, idx: int) -> None:
         """
         处理单个索引的任务
-        
+
         Args:
             idx: 当前处理的索引
         """
@@ -563,7 +563,7 @@ class CustomProcess(ProcessBase):
             args = self._get_args_for_index(idx)
             result = self.func(*args, **self.kwargs)
             self.result_dict[idx] = result
-            
+
         except Exception as e:
             error_msg = f'CustomProcess Error | index {idx} | {self.name} | {type(e).__name__}({e})'
             self.result_dict[idx] = error_msg
@@ -572,20 +572,17 @@ class CustomProcess(ProcessBase):
     def _get_args_for_index(self, idx: int) -> list:
         """
         获取指定索引对应的参数
-        
+
         Args:
             idx: 索引
-            
+
         Returns:
             list: 参数列表
         """
         if not self.args:
             return []
-        
-        return [
-            arg[idx] if isinstance(arg, (list, tuple)) and len(arg) > idx else arg
-            for arg in self.args
-        ]
+
+        return [arg[idx] if isinstance(arg, (list, tuple)) and len(arg) > idx else arg for arg in self.args]
 
     @classmethod
     def wait_completed(cls) -> None:

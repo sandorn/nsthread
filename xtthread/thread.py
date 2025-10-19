@@ -5,7 +5,7 @@ Description  : 线程管理工具模块 - 提供增强型线程基类、线程�
 Develop      : VSCode
 Author       : sandorn sandorn@live.cn
 LastEditTime : 2025-09-06 14:00:00
-Github       : https://github.com/sandorn/nsthread
+Github       : https://github.com/sandorn/xtthread
 
 本模块提供以下核心功能：
 - ThreadBase：增强型线程基类,提供结果获取、安全停止和资源清理功能
@@ -581,16 +581,16 @@ class ComposedSingletonThread:
     _key: tuple[int, tuple, frozenset] | None = None
 
     def __new__(
-            cls,
-            target: Callable[..., Any] | None = None,
-            name: str | None = None,
-            args: tuple = (),
-            kwargs: dict[str, Any] = {},
-            *,
-            daemon: bool | None = True,
-            max_retries: int = 0,
-            retry_delay: float = 1.0,
-            **thread_kwargs: Any,  # 接收线程自身的额外参数
+        cls,
+        target: Callable[..., Any] | None = None,
+        name: str | None = None,
+        args: tuple = (),
+        kwargs: dict[str, Any] = {},
+        *,
+        daemon: bool | None = True,
+        max_retries: int = 0,
+        retry_delay: float = 1.0,
+        **thread_kwargs: Any,  # 接收线程自身的额外参数
     ):
         # 使用目标函数ID、参数和关键字参数作为单例键
         key = (id(target), args, frozenset(kwargs.items()))

@@ -16,7 +16,7 @@ import threading
 import time
 
 # 导入要测试的装饰器
-from nsthread.wraps import ThreadWrapsManager, parallelize_wraps, qthread_wraps, run_in_qtthread, run_in_thread, thread_print, thread_safe, thread_wraps
+from xtthread.wraps import ThreadWrapsManager, parallelize_wraps, qthread_wraps, run_in_qtthread, run_in_thread, thread_print, thread_safe, thread_wraps
 
 # 准备测试数据和辅助函数
 global_counter = 0

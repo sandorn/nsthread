@@ -2,7 +2,7 @@
 include README.md
 
 # 包含tests目录及其所有文件
-recursive-include tests *.py
+recursive-include examples *.py
 
 # 包含所有Python源文件
-recursive-include nsthread *.py
+recursive-include xtthread *.py

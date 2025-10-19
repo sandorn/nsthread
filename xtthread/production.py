@@ -5,7 +5,7 @@ Description  : 生产者-消费者模式实现 - 提供同步和异步版本的�
 Develop      : VSCode
 Author       : sandorn sandorn@live.cn
 LastEditTime : 2025-09-06 21:00:00
-Github       : https://github.com/sandorn/nsthread
+Github       : https://github.com/sandorn/xtthread
 
 本模块提供以下核心功能：
 - Production：同步多线程生产者-消费者模式实现

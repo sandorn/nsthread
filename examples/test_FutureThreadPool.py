@@ -14,7 +14,7 @@ import asyncio
 import time
 import unittest
 
-from nsthread.futures import FutureThreadPool
+from xtthread.futures import FutureThreadPool
 
 
 class TestFutureThreadPool(unittest.TestCase):
@@ -32,7 +32,7 @@ class TestFutureThreadPool(unittest.TestCase):
             return a + b
 
         result = self.pool.submit_task(sync_add, 2, 3)
-        self.assertEqual(result.result, 5)
+        assert result.result == 5
 
     def test_sync_function_with_kwargs(self):
         """测试带关键字参数的同步函数"""
@@ -41,7 +41,7 @@ class TestFutureThreadPool(unittest.TestCase):
             return a * b
 
         result = self.pool.submit_task(sync_multiply, 5, b=3)
-        self.assertEqual(result.result, 15)
+        assert result.result == 15
 
     # 测试异步函数
     def test_async_function(self):
@@ -52,7 +52,7 @@ class TestFutureThreadPool(unittest.TestCase):
             return a + b
 
         result = self.pool.submit_task(async_add, 2, 3)
-        self.assertEqual(result.result, 5)
+        assert result.result == 5
 
     def test_async_function_with_kwargs(self):
         """测试带关键字参数的异步函数"""
@@ -62,7 +62,7 @@ class TestFutureThreadPool(unittest.TestCase):
             return a * b
 
         result = self.pool.submit_task(async_multiply, 5, b=3)
-        self.assertEqual(result.result, 15)
+        assert result.result == 15
 
     # 测试批量任务
     def test_batch_tasks_simple_format(self):
@@ -73,7 +73,7 @@ class TestFutureThreadPool(unittest.TestCase):
 
         numbers = [1, 2, 3, 4, 5]
         results = self.pool.submit_tasks(square, numbers)
-        self.assertEqual([r.result for r in results], [1, 4, 9, 16, 25])
+        assert [r.result for r in results] == [1, 4, 9, 16, 25]
 
     def test_batch_tasks_complex_format(self):
         """测试复杂格式的批量任务"""
@@ -88,7 +88,7 @@ class TestFutureThreadPool(unittest.TestCase):
             ((5,), {'exponent': 1}),  # 5^1 = 5
         ]
         results = self.pool.submit_tasks(power, tasks)
-        self.assertEqual([r.result for r in results], [4, 27, 5])
+        assert [r.result for r in results] == [4, 27, 5]
 
     def test_batch_tasks_tuple_format(self):
         """测试元组格式的批量任务"""
@@ -100,7 +100,7 @@ class TestFutureThreadPool(unittest.TestCase):
         # 元组格式: [(a1, b1), (a2, b2), ...]
         tasks = [(2, 3), (4, 5), (6, 7)]
         results = self.pool.submit_tasks(multiply, tasks)
-        self.assertEqual([r.result for r in results], [6, 20, 42])
+        assert [r.result for r in results] == [6, 20, 42]
 
     def test_batch_tasks_mixed_functions(self):
         """测试混合函数的批量任务"""
@@ -116,11 +116,11 @@ class TestFutureThreadPool(unittest.TestCase):
 
         # 测试异步函数批量
         results = self.pool.submit_tasks(async_square, numbers)
-        self.assertEqual([r.result for r in results], [1, 4, 9])
+        assert [r.result for r in results] == [1, 4, 9]
 
         # 测试同步函数批量
         results = self.pool.submit_tasks(sync_cube, numbers)
-        self.assertEqual([r.result for r in results], [1, 8, 27])
+        assert [r.result for r in results] == [1, 8, 27]
 
     # 测试回调函数
     def test_batch_tasks_with_callback(self):
@@ -135,7 +135,7 @@ class TestFutureThreadPool(unittest.TestCase):
 
         numbers = [1, 2, 3]
         results = self.pool.submit_tasks(increment, numbers)
-        self.assertEqual([r.result for r in results], [2, 3, 4])
+        assert [r.result for r in results] == [2, 3, 4]
 
     # 测试异常处理
     def test_sync_function_exception(self):
@@ -145,9 +145,9 @@ class TestFutureThreadPool(unittest.TestCase):
             raise ValueError('测试同步函数异常处理 Test error')
 
         result = self.pool.submit_task(faulty_function)
-        self.assertFalse(result.success)
-        self.assertIsInstance(result.error, ValueError)
-        self.assertIn('测试同步函数异常处理 Test error', str(result.error))
+        assert not result.success
+        assert isinstance(result.error, ValueError)
+        assert '测试同步函数异常处理 Test error' in str(result.error)
 
     def test_async_function_exception(self):
         """测试异步函数异常处理"""
@@ -157,9 +157,9 @@ class TestFutureThreadPool(unittest.TestCase):
             raise RuntimeError('测试异步函数异常处理 Async test error')
 
         result = self.pool.submit_task(faulty_async_function)
-        self.assertFalse(result.success)
-        self.assertIsInstance(result.error, RuntimeError)
-        self.assertIn('测试异步函数异常处理 Async test error', str(result.error))
+        assert not result.success
+        assert isinstance(result.error, RuntimeError)
+        assert '测试异步函数异常处理 Async test error' in str(result.error)
 
     def test_batch_tasks_with_exceptions(self):
         """测试批量任务中的异常处理"""
@@ -172,15 +172,15 @@ class TestFutureThreadPool(unittest.TestCase):
         numbers = [1, 2, 3]
         results = self.pool.submit_tasks(sometimes_faulty, numbers)
 
-        self.assertEqual(results[0].result, 10)  # 1 * 10 = 10
-        self.assertEqual(results[2].result, 30)  # 3 * 10 = 30
+        assert results[0].result == 10  # 1 * 10 = 10
+        assert results[2].result == 30  # 3 * 10 = 30
 
     # 测试上下文管理器
     def test_context_manager(self):
         """测试上下文管理器用法"""
         with FutureThreadPool(max_workers=2) as pool:
             result = pool.submit_task(lambda x: x * 3, 4)
-            self.assertEqual(result.result, 12)
+            assert result.result == 12
 
     # 测试性能和多线程
     def test_concurrent_execution(self):
@@ -199,8 +199,8 @@ class TestFutureThreadPool(unittest.TestCase):
         execution_time = end_time - start_time
 
         # 由于是并发执行，总时间应该远小于 5 * 0.1 = 0.5 秒
-        self.assertLess(execution_time, 0.5)
-        self.assertEqual([r.result for r in results], numbers)
+        assert execution_time < 0.5
+        assert [r.result for r in results] == numbers
 
     # 测试边界情况
     def test_empty_batch_tasks(self):
@@ -210,7 +210,7 @@ class TestFutureThreadPool(unittest.TestCase):
             return x
 
         results = self.pool.submit_tasks(dummy_func, [])
-        self.assertEqual(results, [])
+        assert results == []
 
     def test_none_results(self):
         """测试返回 None 的函数"""
@@ -219,8 +219,8 @@ class TestFutureThreadPool(unittest.TestCase):
             return None
 
         result = self.pool.submit_task(none_function)
-        self.assertTrue(result.success)
-        self.assertIsNone(result.result)
+        assert result.success
+        assert result.result is None
 
     def test_large_batch_tasks(self):
         """测试大批量任务"""
@@ -230,7 +230,7 @@ class TestFutureThreadPool(unittest.TestCase):
 
         large_list = list(range(100))
         results = self.pool.submit_tasks(identity, large_list)
-        self.assertEqual([r.result for r in results], large_list)
+        assert [r.result for r in results] == large_list
 
     def test_custom_exception_handler(self):
         """测试自定义异常处理器"""
@@ -260,8 +260,8 @@ class TestFutureThreadPoolAdvanced(unittest.TestCase):
         async_results = self.pool.submit_tasks(async_task, [1, 2, 3])
         sync_results = self.pool.submit_tasks(sync_task, [1, 2, 3])
 
-        self.assertEqual([r.result for r in async_results], ['async_1', 'async_2', 'async_3'])
-        self.assertEqual([r.result for r in sync_results], ['sync_1', 'sync_2', 'sync_3'])
+        assert [r.result for r in async_results] == ['async_1', 'async_2', 'async_3']
+        assert [r.result for r in sync_results] == ['sync_1', 'sync_2', 'sync_3']
 
     def test_thread_pool_isolation(self):
         """测试线程池隔离"""
@@ -277,8 +277,8 @@ class TestFutureThreadPoolAdvanced(unittest.TestCase):
         results1 = pool1.submit_tasks(task_that_uses_resources, [1, 2, 3])
         results2 = pool2.submit_tasks(task_that_uses_resources, [4, 5, 6])
 
-        self.assertEqual([r.result for r in results1], [1, 4, 9])
-        self.assertEqual([r.result for r in results2], [16, 25, 36])
+        assert [r.result for r in results1] == [1, 4, 9]
+        assert [r.result for r in results2] == [16, 25, 36]
 
     def test_stress_test(self):
         """压力测试"""
@@ -291,7 +291,7 @@ class TestFutureThreadPoolAdvanced(unittest.TestCase):
         results = self.pool.submit_tasks(simple_computation, large_input)
 
         expected = [x * x + x for x in large_input]
-        self.assertEqual([r.result for r in results], expected)
+        assert [r.result for r in results] == expected
 
     def test_concurrent_independent_calls(self):
         """测试并发独立调用"""
@@ -304,9 +304,9 @@ class TestFutureThreadPoolAdvanced(unittest.TestCase):
         result2 = self.pool.submit_task(add_one, 2)
         result3 = self.pool.submit_task(add_one, 3)
 
-        self.assertEqual(result1.result, 2)
-        self.assertEqual(result2.result, 3)
-        self.assertEqual(result3.result, 4)
+        assert result1.result == 2
+        assert result2.result == 3
+        assert result3.result == 4
 
 
 class TestFutureThreadPoolEdgeCases(unittest.TestCase):
@@ -324,7 +324,7 @@ class TestFutureThreadPoolEdgeCases(unittest.TestCase):
 
         # 单个项目的批量任务
         results = self.pool.submit_tasks(double, [5])
-        self.assertEqual([r.result for r in results], [10])
+        assert [r.result for r in results] == [10]
 
     def test_nested_functions(self):
         """测试嵌套函数"""
@@ -336,12 +336,12 @@ class TestFutureThreadPoolEdgeCases(unittest.TestCase):
             return inner_function(x) + 1
 
         result = self.pool.submit_task(outer_function, 3)
-        self.assertEqual(result.result, 7)  # 3*2 + 1 = 7
+        assert result.result == 7  # 3*2 + 1 = 7
 
     def test_lambda_functions(self):
         """测试 lambda 函数"""
         result = self.pool.submit_task(lambda x, y: x + y, 10, 20)
-        self.assertEqual(result.result, 30)
+        assert result.result == 30
 
     def test_class_methods(self):
         """测试类方法"""
@@ -352,7 +352,7 @@ class TestFutureThreadPoolEdgeCases(unittest.TestCase):
 
         calc = Calculator()
         result = self.pool.submit_task(calc.add, 7, 8)
-        self.assertEqual(result.result, 15)
+        assert result.result == 15
 
     def test_static_methods(self):
         """测试静态方法"""
@@ -363,7 +363,7 @@ class TestFutureThreadPoolEdgeCases(unittest.TestCase):
                 return a * b
 
         result = self.pool.submit_task(MathUtils.multiply, 6, 7)
-        self.assertEqual(result.result, 42)
+        assert result.result == 42
 
     def test_instance_with_state(self):
         """测试有状态的实例方法"""
@@ -383,8 +383,8 @@ class TestFutureThreadPoolEdgeCases(unittest.TestCase):
         # 修复：由于使用的是同一个实例，状态会在调用间保持
         # 但要注意，由于线程池的异步特性，实际的执行顺序可能不确定
         # 这里我们只检查两个结果都大于等于1，且不相等（因为状态递增）
-        self.assertEqual(result1.result, 1)
-        self.assertEqual(result2.result, 2)
+        assert result1.result == 1
+        assert result2.result == 2
 
 
 def performance_demo():

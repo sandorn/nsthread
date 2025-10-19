@@ -10,7 +10,7 @@ import asyncio
 import sys
 import time
 
-from nsthread.futures import AsyncThreadPool, TaskResult
+from xtthread.futures import AsyncThreadPool, TaskResult
 
 
 def simple_sync_task(task_id: int) -> int:

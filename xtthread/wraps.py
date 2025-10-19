@@ -5,7 +5,7 @@ Description  : 线程装饰器模块 - 提供函数线程化、并行化和线�
 Develop      : VSCode
 Author       : sandorn sandorn@live.cn
 LastEditTime : 2025-09-07 17:00:00
-Github       : https://github.com/sandorn/nsthread
+Github       : https://github.com/sandorn/xtthread
 
 本模块提供以下核心功能：
 - thread_safe：线程安全装饰器,确保函数在多线程环境中的安全调用
@@ -36,7 +36,6 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
 from typing import Any, ClassVar
 
-import wrapt
 from xtlog import mylog
 
 from .qthread import QtThreadBase, QtThreadManager
@@ -155,7 +154,7 @@ def thread_wraps(fn: Callable[..., Any] | None = None, daemon: bool = False, max
                 # 从kwargs中提取max_retries和retry_delay参数
                 local_max_retries = kwargs.pop('max_retries', max_retries)
                 retry_delay = kwargs.pop('retry_delay', 1.0)
-                
+
                 if local_max_retries > 0:
                     # 创建安全线程（带重试机制）
                     thread_instance = ThreadManager.create_safe_thread(
@@ -323,7 +322,7 @@ def qthread_wraps(fn: Callable[..., Any] | None = None, daemon: bool = False, ma
                 # 从kwargs中提取max_retries和retry_delay参数
                 local_max_retries = kwargs.pop('max_retries', max_retries)
                 retry_delay = kwargs.pop('retry_delay', 1.0)
-                
+
                 # 检查是否需要安全线程（带重试机制）
                 if local_max_retries > 0:
                     # 创建安全线程（带重试机制）
@@ -343,8 +342,7 @@ def qthread_wraps(fn: Callable[..., Any] | None = None, daemon: bool = False, ma
     return _decorator(fn) if fn is not None else _decorator
 
 
-@wrapt.decorator
-def parallelize_wraps(func: Callable[..., Any], instance, args, kwargs) -> Any:
+def parallelize_wraps(func: Callable[..., Any]) -> Callable[..., Any]:
     """函数并行化装饰器 - 使用线程池并行执行函数
 
     适用于处理大量独立数据项的场景,可显著提高处理效率。
@@ -352,12 +350,9 @@ def parallelize_wraps(func: Callable[..., Any], instance, args, kwargs) -> Any:
 
     Args:
         func: 被装饰的函数,应接收单个数据项作为参数
-        instance: 实例方法的self参数
-        args: 包含数据项的可迭代对象
-        kwargs: 关键字参数
 
     Returns:
-        函数执行结果的列表,保持原始输入顺序
+        装饰后的函数,执行时返回函数执行结果的列表,保持原始输入顺序
 
     Example:
         >>> @parallelize_wraps
@@ -369,15 +364,20 @@ def parallelize_wraps(func: Callable[..., Any], instance, args, kwargs) -> Any:
         >>> results = process_item([1, 2, 3, 4, 5])
         >>> # results 将是 [2, 4, 6, 8, 10]
     """
-    try:
-        max_workers = kwargs.pop('max_workers', None)  # 使用下划线开头,表示内部变量
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            results = list(executor.map(func, *args, **kwargs))
-        mylog.info('并行处理完成,共处理 {} 个项目', len(results))
-        return results
-    except Exception as e:
-        mylog.error('并行处理时发生错误: {}', e)
-        raise
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            max_workers = kwargs.pop('max_workers', None)  # 使用下划线开头,表示内部变量
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                results = list(executor.map(func, *args, **kwargs))
+            mylog.info('并行处理完成,共处理 {} 个项目', len(results))
+            return results
+        except Exception as e:
+            mylog.error('并行处理时发生错误: {}', e)
+            raise
+
+    return wrapper
 
 
 # 公共API导出

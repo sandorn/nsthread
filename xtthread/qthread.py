@@ -5,7 +5,7 @@ Description  : PyQt6线程增强模块 - 提供安全、可靠的Qt线程封装�
 Develop      : VSCode
 Author       : sandorn sandorn@live.cn
 LastEditTime : 2025-09-06 17:36:20
-Github       : https://github.com/sandorn/nsthread
+Github       : https://github.com/sandorn/xtthread
 
 本模块提供以下核心功能：
 - QtThreadBase：基于QThread的增强型线程基类,提供结果获取、安全停止和异常处理
@@ -126,7 +126,7 @@ class QtThreadBase(QThread):
                 if callable(self.callback):
                     self._result = self.callback(self._result)
         except Exception as e:
-            mylog.error("线程执行异常: {}", e)
+            mylog.error('线程执行异常: {}', e)
             self._exception = e
             self.error_signal.emit(e)
             self._result = None
@@ -173,7 +173,7 @@ class QtThreadBase(QThread):
         else:
             success = self.wait()
 
-        mylog.info("线程 {} 已停止", self.objectName())
+        mylog.info('线程 {} 已停止', self.objectName())
         return success
 
     def is_running(self) -> bool:
@@ -250,11 +250,11 @@ class QtSafeThread(QtThreadBase):
             except Exception as e:
                 self.retry_count += 1
                 if self.retry_count > self.max_retries:
-                    mylog.error("安全线程 {} 执行失败,已达最大重试次数: {}", self.objectName(), e)
+                    mylog.error('安全线程 {} 执行失败,已达最大重试次数: {}', self.objectName(), e)
                     self._exception = e
                     self.error_signal.emit(e)
                     break
-                mylog.info("安全线程 {} 第 {} 次重试: {}", self.objectName(), self.retry_count, e)
+                mylog.info('安全线程 {} 第 {} 次重试: {}', self.objectName(), self.retry_count, e)
                 time.sleep(self.retry_delay)
             finally:
                 self._is_running = False
@@ -299,9 +299,7 @@ class QtThreadManager(SingletonMixin):
         return tmp_thread
 
     @classmethod
-    def create_safe_thread(
-        cls, target: Callable[..., Any], *args: Any, **kwargs: Any
-    ) -> QtSafeThread:
+    def create_safe_thread(cls, target: Callable[..., Any], *args: Any, **kwargs: Any) -> QtSafeThread:
         """创建并启动安全线程,自动添加到管理器
 
         Args:
@@ -356,7 +354,7 @@ class QtThreadManager(SingletonMixin):
                 # 清理所有引用
                 cls._threads.clear()
         except Exception as e:
-            mylog.error("停止所有线程失败: {}", e)
+            mylog.error('停止所有线程失败: {}', e)
             raise  # 重新抛出异常，让调用者知道操作失败
 
     @classmethod
@@ -515,13 +513,13 @@ class SingletonQtThread(SingletonMixin, QtSafeThread):
             target = self._target
             args = self._args
             kwargs = self._kwargs
-            
+
             # 从管理器中移除旧线程
             QtThreadManager._threads.pop(id(self), None)
-            
+
             # 重置单例实例
             self.reset_instance()
-            
+
             # 创建并启动新实例
             new_instance = type(self)(target, *args, **kwargs)
             new_instance.start()

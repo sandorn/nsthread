@@ -15,7 +15,7 @@ import threading
 import time
 import unittest
 
-from nsthread.production import AsyncProduction, AsyncProductionManager, Production, SyncProductionManager
+from xtthread.production import AsyncProduction, AsyncProductionManager, Production, SyncProductionManager
 
 
 class TestProduction(unittest.TestCase):
@@ -33,10 +33,10 @@ class TestProduction(unittest.TestCase):
     def test_init(self):
         """测试初始化功能"""
         production = Production(queue_size=3)
-        self.assertEqual(production.queue.maxsize, 3)
-        self.assertEqual(production.tasks, 0)
-        self.assertIsNone(production.error_callback)
-        self.assertFalse(production.running.is_set())
+        assert production.queue.maxsize == 3
+        assert production.tasks == 0
+        assert production.error_callback is None
+        assert not production.running.is_set()
         production.shutdown()
 
     def test_add_producer_and_consumer(self):
@@ -52,20 +52,20 @@ class TestProduction(unittest.TestCase):
         # 测试添加生产者
         initial_producer_count = len(self.production.producers)
         self.production.add_producer(simple_producer, 'TestProducer')
-        self.assertEqual(len(self.production.producers), initial_producer_count + 1)
+        assert len(self.production.producers) == initial_producer_count + 1
 
         # 测试添加消费者
         initial_consumer_count = len(self.production.consumers)
         self.production.add_consumer(simple_consumer, 'TestConsumer')
-        self.assertEqual(len(self.production.consumers), initial_consumer_count + 1)
+        assert len(self.production.consumers) == initial_consumer_count + 1
 
         # 验证线程已启动
         producer_thread = self.production.producers[-1]
         consumer_thread = self.production.consumers[-1]
-        self.assertTrue(producer_thread.is_alive())
-        self.assertTrue(consumer_thread.is_alive())
-        self.assertEqual(producer_thread.name, 'TestProducer')
-        self.assertEqual(consumer_thread.name, 'TestConsumer')
+        assert producer_thread.is_alive()
+        assert consumer_thread.is_alive()
+        assert producer_thread.name == 'TestProducer'
+        assert consumer_thread.name == 'TestConsumer'
 
     def test_basic_producer_consumer_flow(self):
         """测试基本的生产者-消费者流程"""
@@ -94,9 +94,9 @@ class TestProduction(unittest.TestCase):
         final_results = self.production.shutdown()
 
         # 验证生产和消费都有发生
-        self.assertGreater(len(results_produced), 0)
-        self.assertGreater(len(results_consumed), 0)
-        self.assertGreater(len(final_results), 0)
+        assert len(results_produced) > 0
+        assert len(results_consumed) > 0
+        assert len(final_results) > 0
 
     def test_error_handling_with_callback(self):
         """测试带错误回调的异常处理"""
@@ -122,13 +122,13 @@ class TestProduction(unittest.TestCase):
         self.production.shutdown()
 
         # 验证错误回调被调用
-        self.assertGreater(len(captured_errors), 0)
-        self.assertGreater(len(captured_items), 0)
+        assert len(captured_errors) > 0
+        assert len(captured_items) > 0
 
         # 验证错误类型正确
         for error in captured_errors:
-            self.assertIsInstance(error, ValueError)
-            self.assertIn('消费失败', str(error))
+            assert isinstance(error, ValueError)
+            assert '消费失败' in str(error)
 
     def test_error_handling_without_callback(self):
         """测试没有错误回调时的异常处理"""
@@ -153,9 +153,9 @@ class TestProduction(unittest.TestCase):
         results = self.production.shutdown()
 
         # 验证系统能够继续运行，没有因为异常而崩溃
-        self.assertIsNotNone(results)
+        assert results is not None
         # 验证任务已经被处理（虽然可能失败）
-        self.assertGreater(self.production.tasks, initial_tasks)
+        assert self.production.tasks > initial_tasks
 
     def test_get_methods(self):
         """测试获取结果和状态的方法"""
@@ -177,15 +177,15 @@ class TestProduction(unittest.TestCase):
 
         # 测试获取任务计数
         task_count = self.production.get_task_count()
-        self.assertGreaterEqual(task_count, 0)
+        assert task_count >= 0
 
         # 测试获取结果列表
         results = self.production.get_result_list()
-        self.assertIsInstance(results, list)
+        assert isinstance(results, list)
 
         # 如果有结果，测试获取单个结果
         if results:
-            self.assertEqual(results[0], 50)  # 10 * 5
+            assert results[0] == 50  # 10 * 5
 
     def test_queue_size_limit(self):
         """测试队列大小限制"""
@@ -204,7 +204,7 @@ class TestProduction(unittest.TestCase):
         time.sleep(0.5)  # 让生产者尝试填满队列
 
         # 队列大小不应超过限制
-        self.assertLessEqual(production.queue.qsize(), 2)
+        assert production.queue.qsize() <= 2
 
         production.shutdown()
 
@@ -236,9 +236,9 @@ class TestProduction(unittest.TestCase):
         results = self.production.shutdown()
 
         # 验证多个线程工作
-        self.assertEqual(len(self.production.producers), 2)
-        self.assertEqual(len(self.production.consumers), 2)
-        self.assertGreater(len(results), 0)
+        assert len(self.production.producers) == 2
+        assert len(self.production.consumers) == 2
+        assert len(results) > 0
 
 
 class TestAsyncProduction(unittest.TestCase):
@@ -266,11 +266,11 @@ class TestAsyncProduction(unittest.TestCase):
 
         async def test():
             production = AsyncProduction(queue_size=3)
-            self.assertEqual(production.queue.maxsize, 3)
-            self.assertFalse(production.running)
-            self.assertEqual(len(production.producer_tasks), 0)
-            self.assertEqual(len(production.consumer_tasks), 0)
-            self.assertIsNone(production.error_callback)
+            assert production.queue.maxsize == 3
+            assert not production.running
+            assert len(production.producer_tasks) == 0
+            assert len(production.consumer_tasks) == 0
+            assert production.error_callback is None
 
         self.loop.run_until_complete(test())
 
@@ -292,21 +292,21 @@ class TestAsyncProduction(unittest.TestCase):
             await production.start(1, 1, producer, consumer)
 
             # 验证系统已启动
-            self.assertTrue(production.running)
-            self.assertEqual(len(production.producer_tasks), 1)
-            self.assertEqual(len(production.consumer_tasks), 1)
+            assert production.running
+            assert len(production.producer_tasks) == 1
+            assert len(production.consumer_tasks) == 1
 
             # 验证任务都在运行
             for task in production.producer_tasks + production.consumer_tasks:
-                self.assertFalse(task.done())
+                assert not task.done()
 
             # 测试关闭
             await production.shutdown()
 
             # 验证系统已停止
-            self.assertFalse(production.running)
-            self.assertEqual(len(production.producer_tasks), 0)
-            self.assertEqual(len(production.consumer_tasks), 0)
+            assert not production.running
+            assert len(production.producer_tasks) == 0
+            assert len(production.consumer_tasks) == 0
 
         self.loop.run_until_complete(test())
 
@@ -342,8 +342,8 @@ class TestAsyncProduction(unittest.TestCase):
             await production.shutdown()
 
             # 验证生产和消费都有发生
-            self.assertGreater(produced_count, 0)
-            self.assertGreater(consumed_count, 0)
+            assert produced_count > 0
+            assert consumed_count > 0
 
         self.loop.run_until_complete(test())
 
@@ -373,13 +373,13 @@ class TestAsyncProduction(unittest.TestCase):
             await production.shutdown()
 
             # 验证错误回调被调用
-            self.assertGreater(len(captured_errors), 0)
-            self.assertGreater(len(captured_items), 0)
+            assert len(captured_errors) > 0
+            assert len(captured_items) > 0
 
             # 验证错误类型正确
             for error in captured_errors:
-                self.assertIsInstance(error, ValueError)
-                self.assertIn('消费失败', str(error))
+                assert isinstance(error, ValueError)
+                assert '消费失败' in str(error)
 
         self.loop.run_until_complete(test())
 
@@ -404,9 +404,9 @@ class TestAsyncProduction(unittest.TestCase):
             await production.shutdown()
 
             # 验证系统已停止
-            self.assertFalse(production.running)
-            self.assertEqual(len(production.producer_tasks), 0)
-            self.assertEqual(len(production.consumer_tasks), 0)
+            assert not production.running
+            assert len(production.producer_tasks) == 0
+            assert len(production.consumer_tasks) == 0
 
         self.loop.run_until_complete(test())
 
@@ -431,7 +431,7 @@ class TestAsyncProduction(unittest.TestCase):
             final_tasks = len(production.producer_tasks) + len(production.consumer_tasks)
 
             # 任务数量不应该改变
-            self.assertEqual(initial_tasks, final_tasks)
+            assert initial_tasks == final_tasks
 
             await production.shutdown()
 
@@ -464,9 +464,9 @@ class TestAsyncProduction(unittest.TestCase):
             second_running_state = production.running
 
             # 第二次关闭不应该改变运行状态
-            self.assertFalse(first_running_state)
-            self.assertFalse(second_running_state)
-            self.assertFalse(production.running)
+            assert not first_running_state
+            assert not second_running_state
+            assert not production.running
 
         self.loop.run_until_complete(test())
 
@@ -502,7 +502,7 @@ class TestAsyncProduction(unittest.TestCase):
 
             # 等待队列清空
             done = await production.wait_until_done(timeout=1)
-            self.assertTrue(done)
+            assert done
 
             await production.shutdown()
 
@@ -533,9 +533,9 @@ class TestProductionIntegration(unittest.TestCase):
             return item * 2
 
         # 添加多个生产者和消费者
-        for i in range(3):
+        for _i in range(3):
             production.add_producer(producer)
-        for i in range(2):
+        for _i in range(2):
             production.add_consumer(consumer)
 
         # 运行较长时间
@@ -544,9 +544,9 @@ class TestProductionIntegration(unittest.TestCase):
         results = production.shutdown()
 
         # 验证大量任务被处理
-        self.assertGreater(len(results), 10)
-        self.assertGreater(counter['produced'], 10)
-        self.assertGreater(counter['consumed'], 10)
+        assert len(results) > 10
+        assert counter['produced'] > 10
+        assert counter['consumed'] > 10
 
     def test_async_production_stress_test(self):
         """异步生产者-消费者压力测试"""
@@ -577,8 +577,8 @@ class TestProductionIntegration(unittest.TestCase):
             await production.shutdown()
 
             # 验证大量任务被处理
-            self.assertGreater(counter['produced'], 5)
-            self.assertGreater(counter['consumed'], 5)
+            assert counter['produced'] > 5
+            assert counter['consumed'] > 5
 
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)

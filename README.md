@@ -1,12 +1,12 @@
 <div align="center">
     <strong>版本: 0.0.7</strong> | 
-    <a href="https://github.com/sandorn/nsthread">GitHub</a> | 
+    <a href="https://github.com/sandorn/xtthread">GitHub</a> | 
     <strong>Python 3.13+</strong>
 </div>
 
-# nsthread
+# xtthread
 
-nsthread 是一个全面的 Python 并发编程增强库，为标准线程、进程和 Qt 线程提供了更高级的抽象和异常处理机制。作者: sandorn sandorn@live.cn
+xtthread 是一个全面的 Python 并发编程增强库，为标准线程、进程和 Qt 线程提供了更高级的抽象和异常处理机制。作者: sandorn sandorn@live.cn
 
 ## 功能特点
 
@@ -24,7 +24,7 @@ nsthread 是一个全面的 Python 并发编程增强库，为标准线程、进
 ### 基本安装
 
 ```bash
-pip install nsthread
+pip install xtthread
 ```
 
 ### 可选依赖
@@ -40,7 +40,7 @@ pip install PyQt6
 ### 1. 基本线程使用
 
 ```python
-from nsthread import ThreadBase
+from xtthread import ThreadBase
 
 # 创建线程并启动
 def my_task(name):
@@ -59,7 +59,7 @@ print(result)  # 输出: Hello, World!
 ### 2. 使用装饰器简化并发编程
 
 ```python
-from nsthread import run_in_thread, safe_call
+from xtthread import run_in_thread, safe_call
 import time
 
 # 在单独线程中执行函数
@@ -83,14 +83,14 @@ print(f"处理结果: {result}")
 ### 3. 使用线程池处理批量任务
 
 ```python
-from nsthread import EnhancedThreadPool
+from xtthread import EnhancedThreadPool
 import time
 
 # 创建线程池（最多4个工作线程）
 with EnhancedThreadPool(max_workers=4) as pool:
     # 提交多个任务
     tasks = [pool.submit(time.sleep, i * 0.5) for i in range(1, 6)]
-    
+
     # 等待所有任务完成并获取结果
     results = pool.wait_all_completed()
     print(f"任务完成数量: {len(results)}")
@@ -99,7 +99,7 @@ with EnhancedThreadPool(max_workers=4) as pool:
 ### 4. 生产者-消费者模式
 
 ```python
-from nsthread import Production
+from xtthread import Production
 import time
 import random
 
@@ -320,9 +320,9 @@ print(f"所有结果: {results}")
 """
 ```
 
-### 6. PyQt线程增强模块 (`qthread.py`)
+### 6. PyQt 线程增强模块 (`qthread.py`)
 
-提供基于PyQt6的线程增强功能，适用于GUI应用程序。
+提供基于 PyQt6 的线程增强功能，适用于 GUI 应用程序。
 
 #### QtThreadBase
 
@@ -398,16 +398,16 @@ print(f"所有结果: {results}")
 
 ## 单例线程支持
 
-nsthread提供了多种单例模式线程实现，确保同一目标函数只有一个线程实例运行：
+xtthread 提供了多种单例模式线程实现，确保同一目标函数只有一个线程实例运行：
 
 -   `SingletonThread`: 确保同一目标函数只有一个线程实例
 -   `ComposedSingletonThread`: 使用组合而非继承实现的单例线程
--   `SingletonQtThread`: 基于QThread的单例线程
--   `ComposedSingletonQtThread`: 基于组合模式的Qt单例线程
+-   `SingletonQtThread`: 基于 QThread 的单例线程
+-   `ComposedSingletonQtThread`: 基于组合模式的 Qt 单例线程
 
 ## 使用场景
 
-nsthread适用于以下各种并发编程场景：
+xtthread 适用于以下各种并发编程场景：
 
 -   **简单并发任务**: 使用 ThreadBase 或 SafeThread
 -   **批量任务处理**: 使用 BaseThreadPool 或 EnhancedThreadPool

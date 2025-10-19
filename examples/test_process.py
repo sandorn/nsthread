@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import time
 
-from nsthread.process import ProcessBase, ProcessManager, SafeProcess, process_manager, run_custom_process
+from xtthread.process import ProcessBase, ProcessManager, SafeProcess, process_manager, run_custom_process
 
 
 def basic_task(x: int) -> int:

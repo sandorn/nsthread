@@ -9,7 +9,7 @@ import asyncio
 import sys
 import time
 
-from nsthread.futures import AsyncThreadPool
+from xtthread.futures import AsyncThreadPool
 
 
 def ordered_task(task_id: int) -> int:

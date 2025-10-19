@@ -8,7 +8,7 @@ from __future__ import annotations
 import random
 import time
 
-from nsthread.thread import ComposedSingletonThread, SafeThread, SingletonThread, ThreadBase, ThreadManager
+from xtthread.thread import ComposedSingletonThread, SafeThread, SingletonThread, ThreadBase, ThreadManager
 
 
 # 改进callback匿名函数，确保正确返回结果

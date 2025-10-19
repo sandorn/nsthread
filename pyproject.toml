@@ -1,5 +1,5 @@
 [project]
-name = "nsthread"
+name = "xtthread"
 version = "0.0.7"
 authors = [
     { name="sandorn", email="sandorn@live.cn" },
@@ -19,15 +19,18 @@ classifiers = [
 ]
 keywords = ["thread", "multithreading", "multiprocessing", "concurrency", "parallelism", "PyQt", "async", "futures"]
 dependencies = [
-    "psutil>=5.9.0"
+    "psutil>=7.1.0",
+    "colorama>=0.4.6",
+    "loguru>=0.7.3",
+    "win32_setctime>=1.2.0"
 ]
 [project.optional-dependencies]
-qt = ["PyQt6>=6.0.0"]
+qt = ["PyQt6>=6.9.1", "PyQt6-Qt6>=6.9.2", "PyQt6_sip>=13.10.2"]
 
 [project.urls]
-Homepage = "https://github.com/sandorn/nsthread"
-Repository = "https://github.com/sandorn/nsthread"
-Issues = "https://github.com/sandorn/nsthread/issues"
+Homepage = "https://github.com/sandorn/xtthread"
+Repository = "https://github.com/sandorn/xtthread"
+Issues = "https://github.com/sandorn/xtthread/issues"
 
 [build-system]
 requires = ["setuptools>=61.0"]
