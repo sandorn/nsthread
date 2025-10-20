@@ -22,7 +22,8 @@ dependencies = [
     "psutil>=7.1.0",
     "colorama>=0.4.6",
     "loguru>=0.7.3",
-    "win32_setctime>=1.2.0"
+    "win32_setctime>=1.2.0",
+    "xtlog>=0.1.9",
 ]
 [project.optional-dependencies]
 qt = ["PyQt6>=6.9.1", "PyQt6-Qt6>=6.9.2", "PyQt6_sip>=13.10.2"]
