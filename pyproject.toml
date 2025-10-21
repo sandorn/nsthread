@@ -23,11 +23,8 @@ dependencies = [
     "colorama>=0.4.6",
     "loguru>=0.7.3",
     "win32_setctime>=1.2.0",
-    "xtlog>=0.1.9",
+    "xtlog>=0.1.9","PyQt6>=6.9.1", "PyQt6-Qt6>=6.9.2", "PyQt6_sip>=13.10.2"
 ]
-[project.optional-dependencies]
-qt = ["PyQt6>=6.9.1", "PyQt6-Qt6>=6.9.2", "PyQt6_sip>=13.10.2"]
-
 [project.urls]
 Homepage = "https://github.com/sandorn/xtthread"
 Repository = "https://github.com/sandorn/xtthread"

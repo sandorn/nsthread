@@ -27,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import functools
+import inspect
 import os
 from collections.abc import Callable, Sequence
 from concurrent.futures import ALL_COMPLETED, FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
@@ -684,7 +685,7 @@ class FutureThreadPool:
         Returns:
             TaskResult: 任务执行结果包装对象
         """
-        if asyncio.iscoroutinefunction(fn):
+        if inspect.iscoroutinefunction(fn):
             # 异步函数处理路径
             try:
                 result = await asyncio.create_task(fn(*args, **kwargs))
